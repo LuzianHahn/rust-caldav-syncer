@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use tokio::fs as async_fs;
@@ -8,7 +8,7 @@ use tokio::io::AsyncReadExt;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct HashStore {
-    pub hashes: HashMap<String, String>,
+    pub hashes: BTreeMap<String, String>,
 }
 
 impl HashStore {

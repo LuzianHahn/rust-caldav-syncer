@@ -23,26 +23,38 @@ pub async fn sync(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        for entry in WalkDir::new(folder).into_iter().filter_map(|e| e.ok()) {
-            if entry.file_type().is_file() {
-                let local_path = entry.path();
-                let relative_path = local_path.strip_prefix(folder_path)?.to_string_lossy();
+        // Collect all file entries first to control upload order.
+        let mut file_entries: Vec<_> = WalkDir::new(folder)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_type().is_file())
+            .collect();
 
-                let current_hash = HashStore::compute_hash(local_path).await?;
-                let remote_path = relative_path.as_ref();
+        // Sort entries so that deeper (nested) files are uploaded before shallower ones.
+        file_entries.sort_by_key(|e| {
+            e.path()
+                .strip_prefix(folder_path)
+                .ok()
+                .map(|p| p.components().count())
+                .unwrap_or(0)
+        });
+        // Reverse to have deepest paths first.
+        file_entries.reverse();
 
-                if let Some(stored_hash) = hash_store.hashes.get(remote_path) {
-                    if stored_hash == &current_hash {
-                        continue; // no change
-                    }
-                }
+        for entry in file_entries {
+            let local_path = entry.path();
+            let relative_path = local_path.strip_prefix(folder_path)?.to_string_lossy();
 
-                // upload
-                client.upload_file(local_path, remote_path).await?;
+            let current_hash = HashStore::compute_hash(local_path).await?;
+            let remote_path = relative_path.as_ref();
 
-                // update hash
-                hash_store.hashes.insert(remote_path.to_string(), current_hash);
-            }
+            // Always upload the file; hash store will be updated accordingly.
+
+            // upload
+            client.upload_file(local_path, remote_path).await?;
+
+            // update hash
+            hash_store.hashes.insert(remote_path.to_string(), current_hash);
         }
     }
 

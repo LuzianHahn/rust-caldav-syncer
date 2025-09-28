@@ -12,7 +12,8 @@ pub async fn sync(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
         config.password.as_deref(),
     )?;
 
-    let hash_store_path = "hashes.yaml"; // TODO: configurable?
+    // Use configurable hash store path from config (defaults to "hashes.yaml")
+    let hash_store_path = &config.hash_store_path;
     let mut hash_store = HashStore::load(hash_store_path)?;
 
     for folder in &config.folders {

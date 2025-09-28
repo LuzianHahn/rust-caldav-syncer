@@ -8,6 +8,8 @@ pub struct Config {
     pub username: Option<String>,
     pub password: Option<String>,
     pub folders: Vec<String>,
+    #[serde(default = "default_hash_path")]
+    pub hash_store_path: String,
 }
 
 impl Config {
@@ -16,6 +18,11 @@ impl Config {
         let config: Config = serde_yaml::from_str(&content)?;
         Ok(config)
     }
+}
+
+// Provide a default path for the hash store when not specified in the config file.
+fn default_hash_path() -> String {
+    "hashes.yaml".to_string()
 }
 
 #[cfg(test)]

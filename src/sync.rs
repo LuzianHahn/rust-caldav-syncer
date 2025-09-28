@@ -10,6 +10,7 @@ pub async fn sync(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
         &config.webdav_url,
         config.username.as_deref(),
         config.password.as_deref(),
+        config.timeout_secs,
     )?;
 
     // Use configurable hash store path from config (defaults to "hashes.yaml")

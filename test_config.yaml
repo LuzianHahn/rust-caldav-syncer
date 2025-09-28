@@ -1,3 +1,4 @@
 webdav_url: "http://localhost:8080"
 folders:
   - "./test_data"
+timeout_secs: 2

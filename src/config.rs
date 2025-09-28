@@ -10,6 +10,8 @@ pub struct Config {
     pub folders: Vec<String>,
     #[serde(default = "default_hash_path")]
     pub hash_store_path: String,
+    #[serde(default = "default_timeout_secs")]
+    pub timeout_secs: u64,
 }
 
 impl Config {
@@ -42,6 +44,10 @@ impl Config {
 // Provide a default path for the hash store when not specified in the config file.
 fn default_hash_path() -> String {
     "hashes.yaml".to_string()
+}
+
+fn default_timeout_secs() -> u64 {
+    3
 }
 
 #[cfg(test)]

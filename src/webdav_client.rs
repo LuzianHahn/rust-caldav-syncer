@@ -11,8 +11,11 @@ pub struct WebDavClient {
 }
 
 impl WebDavClient {
-    pub fn new(url: &str, username: Option<&str>, password: Option<&str>) -> Result<Self, Box<dyn std::error::Error>> {
-        let client = Client::new();
+    pub fn new(url: &str, username: Option<&str>, password: Option<&str>, timeout_secs: u64) -> Result<Self, Box<dyn std::error::Error>> {
+        // Configure the reqwest client with a timeout.
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(timeout_secs))
+            .build()?;
         Ok(Self {
             client,
             base_url: url.to_string(),

@@ -163,3 +163,39 @@ async fn test_sync_no_change_when_already_present() {
     // Clean up.
     // Server stopped globally by test_teardown
 }
+// Test case: overwrite remote file when it differs from local version.
+#[serial]
+#[tokio::test]
+async fn test_sync_overwrites_changed_remote_file() {
+    // Ensure a clean server state and upload a broken version of the file.
+    let client = Client::new();
+    let url = format!("http://localhost:8080/{}", REMOTE_PATH);
+    let broken_content = b"broken content";
+    client
+        .put(&url)
+        .body(broken_content.to_vec())
+        .send()
+        .await
+        .expect("Failed to upload broken remote file");
+    // Give the server a moment to process the upload.
+    sleep(Duration::from_secs(1)).await;
+
+    // Load configuration.
+    let config = Config::load("test_config.yaml").expect("Failed to load test config");
+
+    // Ensure any previous hash store is removed so sync does not think the file is up‑to‑date.
+    let _ = std::fs::remove_file("hashes.yaml");
+
+    // Run sync: should detect the hash mismatch and overwrite the remote file.
+    sync(&config).await.expect("Sync failed to overwrite remote file");
+
+    // Verify remote content now matches the local file.
+    let remote_content = fetch_remote_file()
+        .await
+        .expect("Failed to fetch remote file after sync");
+    let local_content = read_local_test_file();
+    assert_eq!(
+        remote_content, local_content,
+        "Remote file was not overwritten with local content"
+    );
+}

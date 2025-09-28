@@ -16,7 +16,7 @@ impl Config {
     /// Load the configuration from a YAML file and validate its contents.
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(path)?;
-        let mut config: Config = serde_yaml::from_str(&content)?;
+        let config: Config = serde_yaml::from_str(&content)?;
         config.validate()?;
         Ok(config)
     }

@@ -13,10 +13,29 @@ pub struct Config {
 }
 
 impl Config {
+    /// Load the configuration from a YAML file and validate its contents.
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
         let content = fs::read_to_string(path)?;
-        let config: Config = serde_yaml::from_str(&content)?;
+        let mut config: Config = serde_yaml::from_str(&content)?;
+        config.validate()?;
         Ok(config)
+    }
+
+    /// Validate required configuration fields.
+    /// Returns an error if any required field is missing or invalid.
+    pub fn validate(&self) -> Result<(), Box<dyn std::error::Error>> {
+        if self.webdav_url.trim().is_empty() {
+            return Err("webdav_url cannot be empty".into());
+        }
+        if self.folders.is_empty() {
+            return Err("folders list cannot be empty".into());
+        }
+        for folder in &self.folders {
+            if folder.trim().is_empty() {
+                return Err("folder path cannot be empty".into());
+            }
+        }
+        Ok(())
     }
 }
 
@@ -60,4 +79,36 @@ folders:
         let result = Config::load(temp_file.path());
         assert!(result.is_err());
     }
+// Additional tests for configuration validation.
+#[test]
+fn test_load_missing_webdav_url() {
+    let yaml = r#"
+username: "user"
+password: "pass"
+folders:
+  - "/path/to/folder1"
+"#;
+    let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+    std::io::Write::write_all(&mut temp_file, yaml.as_bytes()).unwrap();
+
+    let result = Config::load(temp_file.path());
+    assert!(result.is_err());
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(err_msg.contains("webdav_url"));
+}
+
+#[test]
+fn test_load_empty_folders() {
+    let yaml = r#"
+webdav_url: "http://example.com/webdav"
+folders: []
+"#;
+    let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+    std::io::Write::write_all(&mut temp_file, yaml.as_bytes()).unwrap();
+
+    let result = Config::load(temp_file.path());
+    assert!(result.is_err());
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(err_msg.contains("folders"));
+}
 }

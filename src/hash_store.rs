@@ -43,3 +43,37 @@ impl HashStore {
         Ok(format!("{:x}", hash))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[tokio::test]
+    async fn test_compute_hash() {
+        let content = b"test content for hashing";
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(content).unwrap();
+
+        let hash = HashStore::compute_hash(temp_file.path()).await.unwrap();
+        assert!(!hash.is_empty());
+        assert_eq!(hash.len(), 64); // SHA256 hex length
+
+        // Same content same hash
+        let hash2 = HashStore::compute_hash(temp_file.path()).await.unwrap();
+        assert_eq!(hash, hash2);
+    }
+
+    #[test]
+    fn test_hash_store_load_save() {
+        let mut store = HashStore::default();
+        store.hashes.insert("file1".to_string(), "hash1".to_string());
+
+        let temp_path = NamedTempFile::new().unwrap().path().to_path_buf();
+        store.save(&temp_path).unwrap();
+
+        let loaded = HashStore::load(&temp_path).unwrap();
+        assert_eq!(loaded.hashes, store.hashes);
+    }
+}

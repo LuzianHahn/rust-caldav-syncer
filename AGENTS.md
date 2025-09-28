@@ -12,3 +12,5 @@ This file provides guidance to agents when working with code in this repository.
 - Build for Android ARM: `cargo build --release` (Termux provides native Rust)
 - Single test run: `cargo test -- --test <test_name>`
 - Cross-compile if needed: `cross build --target aarch64-linux-android --release`
+- Run unit tests: `cargo test`
+- Run integration tests: `cargo test --test sync_integration` (starts dummy WebDAV server automatically)

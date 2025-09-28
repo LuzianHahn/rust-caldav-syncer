@@ -1,0 +1,11 @@
+version: "3.8"
+services:
+  webdav:
+    image: rclone/rclone:latest
+    command: serve webdav /data --addr :8080 --vfs-cache-mode writes
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
+

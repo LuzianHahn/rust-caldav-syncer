@@ -29,27 +29,42 @@ impl WebDavClient {
         if remote_dir.is_empty() {
             return Ok(());
         }
-
-        let dir_url = format!("{}/{}/", self.base_url.trim_end_matches('/'), remote_dir.trim_end_matches('/'));
-        let mut req = self.client.request(Method::from_bytes(b"MKCOL")?, &dir_url);
-        if let (Some(user), Some(pass)) = (&self.username, &self.password) {
-            req = req.basic_auth(user, Some(pass));
-        }
-
-        let resp = req.send().await?;
-        let status = resp.status();
-        if !status.is_success()
-            && status != StatusCode::METHOD_NOT_ALLOWED
-            && status != StatusCode::CONFLICT
+  
+        // Split the path into components and create each level recursively.
+        let mut accumulated = String::new();
+        for (i, part) in remote_dir
+            .trim_end_matches('/')
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .enumerate()
         {
-            let txt = resp.text().await.unwrap_or_default();
-            return Err(format!(
-                "Failed to create remote directory '{}': {} - {}",
-                remote_dir,
-                status,
-                txt
-            )
-            .into());
+            if i > 0 {
+                accumulated.push('/');
+            }
+            accumulated.push_str(part);
+  
+            let dir_url = format!("{}/{}/", self.base_url.trim_end_matches('/'), accumulated);
+            let mut req = self.client.request(Method::from_bytes(b"MKCOL")?, &dir_url);
+            if let (Some(user), Some(pass)) = (&self.username, &self.password) {
+                req = req.basic_auth(user, Some(pass));
+            }
+  
+            let resp = req.send().await?;
+            let status = resp.status();
+            // Accept success, METHOD_NOT_ALLOWED (already exists), or CONFLICT (parent missing but will be handled in next iteration)
+            if !status.is_success()
+                && status != StatusCode::METHOD_NOT_ALLOWED
+                && status != StatusCode::CONFLICT
+            {
+                let txt = resp.text().await.unwrap_or_default();
+                return Err(format!(
+                    "Failed to create remote directory '{}': {} - {}",
+                    accumulated,
+                    status,
+                    txt
+                )
+                .into());
+            }
         }
         Ok(())
     }

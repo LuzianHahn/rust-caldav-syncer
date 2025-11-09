@@ -87,10 +87,14 @@ pub async fn sync_with_progress(
             let relative_path = local_path.strip_prefix(folder_path)?.to_string_lossy();
 
             let current_hash = HashStore::compute_hash(local_path).await?;
-            let remote_path = relative_path.as_ref();
+            let remote_path = if config.target_dir.is_empty() {
+                relative_path.to_string()
+            } else {
+                format!("{}/{}", config.target_dir.trim_end_matches('/'), relative_path)
+            };
 
             // upload
-            client.upload_file(local_path, remote_path).await?;
+            client.upload_file(local_path, &remote_path).await?;
 
             // update progress bar
             if let Some(pb) = &progress_bar {

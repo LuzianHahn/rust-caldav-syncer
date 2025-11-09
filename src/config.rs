@@ -12,6 +12,8 @@ pub struct Config {
     pub hash_store_path: String,
     #[serde(default = "default_timeout_secs")]
     pub timeout_secs: u64,
+    #[serde(default = "default_target_dir")]
+    pub target_dir: String,
 }
 
 impl Config {
@@ -48,6 +50,10 @@ fn default_hash_path() -> String {
 
 fn default_timeout_secs() -> u64 {
     3
+}
+
+fn default_target_dir() -> String {
+    "".to_string()
 }
 
 #[cfg(test)]
@@ -111,6 +117,34 @@ folders: []
 "#;
     let mut temp_file = tempfile::NamedTempFile::new().unwrap();
     std::io::Write::write_all(&mut temp_file, yaml.as_bytes()).unwrap();
+    #[test]
+    fn test_load_with_target_dir() {
+        let yaml = r#"
+webdav_url: "http://example.com/webdav"
+username: "user"
+password: "pass"
+folders:
+  - "/path/to/folder1"
+target_dir: "remote/dir"
+"#;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", yaml).unwrap();
+        let config = Config::load(temp_file.path()).unwrap();
+        assert_eq!(config.target_dir, "remote/dir");
+    }
+
+    #[test]
+    fn test_load_without_target_dir_defaults_empty() {
+        let yaml = r#"
+webdav_url: "http://example.com/webdav"
+folders:
+  - "/path/to/folder1"
+"#;
+        let mut temp_file = tempfile::NamedTempFile::new().unwrap();
+        write!(temp_file, "{}", yaml).unwrap();
+        let config = Config::load(temp_file.path()).unwrap();
+        assert_eq!(config.target_dir, "");
+    }
 
     let result = Config::load(temp_file.path());
     assert!(result.is_err());

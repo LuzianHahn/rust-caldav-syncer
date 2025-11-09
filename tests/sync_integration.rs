@@ -1,7 +1,7 @@
+use std::fs;
+use tokio::time::{sleep, Duration};
 use phone_sync::{config::Config, sync::sync};
 use std::path::Path;
-use std::time::Duration;
-use tokio::time::sleep;
 use ctor::{ctor, dtor};
 use serial_test::serial;
 use reqwest::Client;
@@ -10,6 +10,7 @@ mod dummy_server;
 use dummy_server::*;
 
 const REMOTE_PATH: &str = "test_file1.txt";
+const TEST_CONFIG: &str = "test_config.yaml";
 
 #[ctor]
 fn test_setup() {
@@ -28,7 +29,7 @@ async fn test_sync_upload_when_missing() {
     delete_remote_file(REMOTE_PATH).await;
     sleep(Duration::from_secs(1)).await;
 
-    let config = Config::load("test_config.yaml").expect("load config");
+    let config = Config::load(&TEST_CONFIG).expect("load config");
     let _ = std::fs::remove_file("hashes.yaml");
 
     sync(&config).await.expect("Initial sync (upload) failed");
@@ -44,7 +45,7 @@ async fn test_sync_upload_when_missing() {
 #[tokio::test]
 #[serial]
 async fn test_sync_no_change_when_already_present() {
-    let config = Config::load("test_config.yaml").expect("load config");
+    let config = Config::load(&TEST_CONFIG).expect("load config");
     let _ = std::fs::remove_file("hashes.yaml");
 
     sync(&config).await.expect("Initial sync (upload) failed");
@@ -79,7 +80,7 @@ async fn test_sync_overwrites_changed_remote_file() {
     // Ensure the broken file is removed before sync to test overwrite behavior.
     delete_remote_file(REMOTE_PATH).await;
 
-    let config = Config::load("test_config.yaml").expect("load config");
+    let config = Config::load(&TEST_CONFIG).expect("load config");
     let _ = std::fs::remove_file("hashes.yaml");
 
     sync(&config).await.expect("Sync failed to overwrite remote file");
@@ -100,7 +101,7 @@ async fn test_sync_creates_remote_directory() {
     delete_remote_file(remote_path).await;
     let _ = std::fs::remove_file("hashes.yaml");
 
-    let config = Config::load("test_config.yaml").expect("load config");
+    let config = Config::load(&TEST_CONFIG).expect("load config");
     sync(&config).await.expect("Sync failed");
 
     let remote_content = fetch_remote_file(remote_path)
@@ -110,4 +111,34 @@ async fn test_sync_creates_remote_directory() {
     let local_content = std::fs::read("./test_data/subdir/test_file1.txt")
         .expect("Unable to read local subdir test file");
     assert_eq!(remote_content, local_content, "Uploaded content mismatch for nested directory");
+}
+#[tokio::test]
+#[serial]
+async fn test_sync_respects_target_dir() {
+    // Ensure a clean state.
+    let _ = fs::remove_file("hashes.yaml");
+    let remote_path = "remote/dir/test_file1.txt";
+
+    // Delete remote file if it exists.
+    delete_remote_file(remote_path).await;
+    sleep(Duration::from_secs(1)).await;
+
+    // Create a temporary config with target_dir set.
+    let mut config = Config::load(&TEST_CONFIG).expect("load config");
+    config.target_dir = "remote/dir".to_string();
+
+    // Perform sync.
+    sync(&config).await.expect("Sync failed");
+
+
+    // Allow server to process.
+    sleep(Duration::from_secs(1)).await;
+
+    // Verify the file was uploaded to the target directory.
+    let remote_content = fetch_remote_file(remote_path)
+        .await
+        .expect("File was not uploaded to the target directory");
+    let local_content = fs::read("./test_data/test_file1.txt")
+        .expect("Unable to read local test file");
+    assert_eq!(remote_content, local_content, "Uploaded content mismatch");
 }

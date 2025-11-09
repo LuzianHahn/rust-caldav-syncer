@@ -29,7 +29,7 @@ pub async fn start_dummy_webdav() {
     let client = Client::new();
     let url = "http://localhost:8080/";
     for _ in 0..10 {
-        match client.get(url).send().await {
+        match client.get(url).basic_auth("TestAccount1", Some("TestPassword1")).send().await {
             Ok(resp) if resp.status().is_success() => break,
             _ => sleep(Duration::from_millis(500)).await,
         }
@@ -50,14 +50,14 @@ pub fn stop_dummy_webdav() {
 pub async fn delete_remote_file(remote_path: &str) {
     let client = Client::new();
     let url = format!("http://localhost:8080/{}", remote_path);
-    let _ = client.delete(&url).send().await;
+    let _ = client.delete(&url).basic_auth("TestAccount1", Some("TestPassword1")).send().await;
 }
 
 /// Retrieves a remote file's content from the dummy WebDAV server.
 pub async fn fetch_remote_file(remote_path: &str) -> Option<Vec<u8>> {
     let client = Client::new();
     let url = format!("http://localhost:8080/{}", remote_path);
-    match client.get(&url).send().await {
+    match client.get(&url).basic_auth("TestAccount1", Some("TestPassword1")).send().await {
         Ok(resp) if resp.status().is_success() => resp.bytes().await.ok().map(|b| b.to_vec()),
         _ => None,
     }

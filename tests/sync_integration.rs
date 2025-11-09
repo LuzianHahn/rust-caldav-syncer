@@ -71,6 +71,7 @@ async fn test_sync_overwrites_changed_remote_file() {
     let url = format!("http://localhost:8080/{}", REMOTE_PATH);
     client
         .put(&url)
+        .basic_auth("dummy", Some("dummy"))
         .body(b"broken content".to_vec())
         .send()
         .await

@@ -1,4 +1,6 @@
 webdav_url: "http://localhost:8080"
+username: "TestAccount1"
+password: "TestPassword1"
 folders:
   - "./test_data"
 timeout_secs: 2

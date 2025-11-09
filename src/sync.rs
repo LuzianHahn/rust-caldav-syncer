@@ -92,15 +92,24 @@ pub async fn sync_with_progress(
             } else {
                 format!("{}/{}", config.target_dir.trim_end_matches('/'), relative_path)
             };
-
+            
+            // If the file's hash matches the stored hash, skip uploading.
+            if hash_store.hashes.get(&remote_path) == Some(&current_hash) {
+                // Still update the progress bar to reflect that the file was processed.
+                if let Some(pb) = &progress_bar {
+                    pb.inc(1);
+                }
+                continue;
+            }
+            
             // upload
             client.upload_file(local_path, &remote_path).await?;
-
+            
             // update progress bar
             if let Some(pb) = &progress_bar {
                 pb.inc(1);
             }
-
+            
             // update hash
             hash_store
                 .hashes

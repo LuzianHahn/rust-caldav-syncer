@@ -26,3 +26,4 @@ rust-project.json
 
 hashes.yaml
 *.sw[op]
+configs

@@ -141,6 +141,8 @@ pub async fn sync_with_progress(
     }
 
     hash_store.save(hash_store_path)?;
+    // Upload updated hash store to remote
+    client.upload_file(hash_store_path, &remote_hash_path).await?;
 
     Ok(())
 }

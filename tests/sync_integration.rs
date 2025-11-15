@@ -154,6 +154,12 @@ async fn test_sync_does_not_upload_hash_store() {
     sync(&config).await.expect("sync failed");
     // The remote hash store should not be present.
     let remote_hash = fetch_remote_file("hashes.yaml").await;
-    // `fetch_remote_file` returns `Option<Vec<u8>>`; it yields `None` when the file does not exist.
-    assert!(remote_hash.is_none(), "Hash store file should not be uploaded");
+    // Verify that the remote hash store was uploaded and matches the local one.
+    assert!(remote_hash.is_some(), "Hash store file should be uploaded");
+    // Compare the remote hash store content with the local file.
+    let local_hash_content = std::fs::read_to_string("hashes.yaml")
+        .expect("Failed to read local hash store");
+    let remote_hash_content = String::from_utf8(remote_hash.unwrap())
+        .expect("Remote hash store is not valid UTF-8");
+    assert_eq!(remote_hash_content, local_hash_content, "Remote hash store content does not match local");
 }

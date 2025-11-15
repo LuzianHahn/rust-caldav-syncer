@@ -95,4 +95,46 @@ impl WebDavClient {
         info!("Uploaded {} to {}", local_path.as_ref().display(), remote_path);
         Ok(())
     }
+    
+    /// Download a remote file via WebDAV GET and write it to a local path.
+    pub async fn download_file<P: AsRef<Path>>(
+        &self,
+        remote_path: &str,
+        local_path: P,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let url = format!("{}/{}", self.base_url.trim_end_matches('/'), remote_path);
+        let mut req = self.client.get(&url);
+        if let (Some(user), Some(pass)) = (&self.username, &self.password) {
+            req = req.basic_auth(user, Some(pass));
+        }
+
+        let resp = req.send().await?;
+        match resp.status() {
+            s if s.is_success() => {
+                let bytes = resp.bytes().await?;
+                async_fs::write(local_path, &bytes).await?;
+                Ok(())
+            }
+            // If the file does not exist on the remote, treat as non‑fatal.
+            reqwest::StatusCode::NOT_FOUND => Ok(()),
+            other => Err(format!(
+                "Failed to download remote file '{}': {}",
+                remote_path, other
+            )
+            .into()),
+    }
+}
+
+    pub async fn file_exists(
+        &self,
+        remote_path: &str,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        let url = format!("{}/{}", self.base_url.trim_end_matches('/'), remote_path);
+        let mut req = self.client.head(&url);
+        if let (Some(user), Some(pass)) = (&self.username, &self.password) {
+            req = req.basic_auth(user, Some(pass));
+        }
+        let resp = req.send().await?;
+        Ok(resp.status().is_success())
+    }
 }

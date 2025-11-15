@@ -142,3 +142,18 @@ async fn test_sync_respects_target_dir() {
         .expect("Unable to read local test file");
     assert_eq!(remote_content, local_content, "Uploaded content mismatch");
 }
+// Verify that the hash store file itself is not uploaded during sync.
+#[tokio::test]
+#[serial]
+async fn test_sync_does_not_upload_hash_store() {
+    // Clean remote hash store file if it exists.
+    delete_remote_file("hashes.yaml").await;
+    // Ensure local hash store does not exist before sync.
+    let _ = std::fs::remove_file("hashes.yaml");
+    let config = Config::load(&TEST_CONFIG).expect("load config");
+    sync(&config).await.expect("sync failed");
+    // The remote hash store should not be present.
+    let remote_hash = fetch_remote_file("hashes.yaml").await;
+    // `fetch_remote_file` returns `Option<Vec<u8>>`; it yields `None` when the file does not exist.
+    assert!(remote_hash.is_none(), "Hash store file should not be uploaded");
+}

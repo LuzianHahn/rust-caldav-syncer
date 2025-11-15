@@ -14,6 +14,8 @@ pub struct Config {
     pub timeout_secs: u64,
     #[serde(default = "default_target_dir")]
     pub target_dir: String,
+    #[serde(default = "default_remote_hash_path")]
+    pub remote_hash_path: String,
 }
 
 impl Config {
@@ -54,6 +56,10 @@ fn default_timeout_secs() -> u64 {
 
 fn default_target_dir() -> String {
     "".to_string()
+}
+
+fn default_remote_hash_path() -> String {
+    "hashes.yaml".to_string()
 }
 
 #[cfg(test)]

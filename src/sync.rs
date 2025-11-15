@@ -24,7 +24,17 @@ pub async fn sync_with_progress(
 
     // Load hash store
     let hash_store_path = &config.hash_store_path;
+    // Download remote hash store if it exists, ignoring errors if not present.
+    let remote_hash_path = config.remote_hash_path.clone();
+    let _ = client.download_file(&remote_hash_path, Path::new(hash_store_path)).await;
+    // Load (or create) the hash store after attempting download.
     let mut hash_store = HashStore::load(hash_store_path)?;
+    // Determine the file name of the local hash store so it can be ignored during sync.
+    let hash_store_file_name = std::path::Path::new(hash_store_path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
 
     // Calculate total number of files for progress bar
     let total_files: usize = config
@@ -86,6 +96,14 @@ pub async fn sync_with_progress(
             let local_path = entry.path();
             let relative_path = local_path.strip_prefix(folder_path)?.to_string_lossy();
 
+            // Skip the hash store file itself to avoid uploading it.
+            if entry.file_name().to_string_lossy() == hash_store_file_name {
+                if let Some(pb) = &progress_bar {
+                    pb.inc(1);
+                }
+                continue;
+            }
+
             let current_hash = HashStore::compute_hash(local_path).await?;
             let remote_path = if config.target_dir.is_empty() {
                 relative_path.to_string()
@@ -94,7 +112,8 @@ pub async fn sync_with_progress(
             };
             
             // If the file's hash matches the stored hash, skip uploading.
-            if hash_store.hashes.get(&remote_path) == Some(&current_hash) {
+            let remote_exists = client.file_exists(&remote_path).await?;
+            if remote_exists && hash_store.hashes.get(&remote_path) == Some(&current_hash) {
                 // Still update the progress bar to reflect that the file was processed.
                 if let Some(pb) = &progress_bar {
                     pb.inc(1);
@@ -122,5 +141,6 @@ pub async fn sync_with_progress(
     }
 
     hash_store.save(hash_store_path)?;
+
     Ok(())
 }

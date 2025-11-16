@@ -8,12 +8,13 @@ use walkdir::WalkDir;
 
 pub async fn sync(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     // Backward‑compatible wrapper without progress bar
-    sync_with_progress(config, false).await
+    sync_with_progress(config, false, false).await
 }
 
 pub async fn sync_with_progress(
     config: &Config,
     show_progress: bool,
+    use_pseudo_hash: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let client = WebDavClient::new(
         &config.webdav_url,
@@ -104,7 +105,11 @@ pub async fn sync_with_progress(
                 continue;
             }
 
-            let current_hash = HashStore::compute_hash(local_path).await?;
+            let current_hash = if use_pseudo_hash {
+                HashStore::compute_pseudo_hash(local_path).await?
+            } else {
+                HashStore::compute_hash(local_path).await?
+            };
             let remote_path = if config.target_dir.is_empty() {
                 relative_path.to_string()
             } else {
@@ -113,7 +118,12 @@ pub async fn sync_with_progress(
             
             // If the file's hash matches the stored hash, skip uploading.
             let remote_exists = client.file_exists(&remote_path).await?;
-            if remote_exists && hash_store.hashes.get(&remote_path) == Some(&current_hash) {
+            let stored_hash = if use_pseudo_hash {
+                hash_store.pseudo_hashes.get(&remote_path)
+            } else {
+                hash_store.regular_hashes.get(&remote_path)
+            };
+            if remote_exists && stored_hash == Some(&current_hash) {
                 // Still update the progress bar to reflect that the file was processed.
                 if let Some(pb) = &progress_bar {
                     pb.inc(1);
@@ -130,9 +140,15 @@ pub async fn sync_with_progress(
             }
             
             // update hash
-            hash_store
-                .hashes
-                .insert(remote_path.to_string(), current_hash);
+            if use_pseudo_hash {
+                hash_store
+                    .pseudo_hashes
+                    .insert(remote_path.to_string(), current_hash);
+            } else {
+                hash_store
+                    .regular_hashes
+                    .insert(remote_path.to_string(), current_hash);
+            }
         }
     }
 

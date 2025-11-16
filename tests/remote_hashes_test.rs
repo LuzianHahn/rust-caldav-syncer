@@ -60,7 +60,7 @@ async fn test_sync_uses_remote_hashes_yaml() {
     // Build a HashStore containing the correct hash.
     let mut remote_store = HashStore::default();
     remote_store
-        .hashes
+        .regular_hashes
         .insert(TEST_FILE.to_string(), local_hash.clone());
 
     // Serialize to YAML.
@@ -100,7 +100,7 @@ async fn test_sync_uses_remote_hashes_yaml() {
     // Verify that the local hash store now matches the remote one.
     let local_store = HashStore::load("hashes.yaml").expect("failed to load local hash store");
     assert_eq!(
-        local_store.hashes.get(TEST_FILE).unwrap(),
+        local_store.regular_hashes.get(TEST_FILE).unwrap(),
         &local_hash,
         "Local hash store does not match remote hash store"
     );

@@ -5,6 +5,8 @@ use indicatif::{ProgressBar, ProgressStyle};
 use log::warn;
 use std::path::Path;
 use walkdir::WalkDir;
+use std::env;
+use std::fs;
 
 pub async fn sync(config: &Config) -> Result<(), Box<dyn std::error::Error>> {
     // Backward‑compatible wrapper without progress bar
@@ -25,11 +27,14 @@ pub async fn sync_with_progress(
 
     // Load hash store
     let hash_store_path = &config.hash_store_path;
-    // Download remote hash store if it exists, ignoring errors if not present.
+    // Download remote hash store to a temporary file, ignoring errors if not present.
     let remote_hash_path = config.remote_hash_path.clone();
-    let _ = client.download_file(&remote_hash_path, Path::new(hash_store_path)).await;
-    // Load (or create) the hash store after attempting download.
-    let mut hash_store = HashStore::load(hash_store_path)?;
+    let temp_remote_path = env::temp_dir().join("remote_hashes.yaml");
+    let _ = client
+        .download_file(&remote_hash_path, &temp_remote_path)
+        .await;
+    // Load (or create) the hash store from the temporary file.
+    let mut hash_store = HashStore::load(&temp_remote_path)?;
     // Determine the file name of the local hash store so it can be ignored during sync.
     let hash_store_file_name = std::path::Path::new(hash_store_path)
         .file_name()
@@ -159,6 +164,8 @@ pub async fn sync_with_progress(
     hash_store.save(hash_store_path)?;
     // Upload updated hash store to remote
     client.upload_file(hash_store_path, &remote_hash_path).await?;
+    // Clean up the temporary remote hash file
+    let _ = fs::remove_file(&temp_remote_path);
 
     Ok(())
 }

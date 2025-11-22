@@ -3,6 +3,7 @@ use reqwest::{Client, Method, StatusCode};
 use std::path::Path;
 use tokio::fs as async_fs;
 
+#[derive(Clone)]
 pub struct WebDavClient {
     client: Client,
     base_url: String,

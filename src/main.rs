@@ -7,6 +7,7 @@ use phone_sync::sync::sync_with_progress;
 use std::path::Path;
 use walkdir::WalkDir;
 
+use phone_sync::hash_store_guard::HashStoreGuard;
 #[derive(Parser)]
 #[command(name = "my_binary")]
 #[command(about = "Sync and hash utility")]
@@ -53,11 +54,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Sync { config, progress, pseudo } => {
             let cfg = Config::load(&config)?;
             info!("Loaded config from {}", config);
-            if let Err(e) = sync_with_progress(&cfg, progress, pseudo).await {
-                error!("Sync failed: {}", e);
-                std::process::exit(1);
+
+            // Create a WebDAV client for the guard.
+            let client = phone_sync::webdav_client::WebDavClient::new(
+                &cfg.webdav_url,
+                cfg.username.as_deref(),
+                cfg.password.as_deref(),
+                cfg.timeout_secs,
+            )?;
+
+            // Initialize the guard which ensures the hash store is saved/uploaded.
+            let guard = HashStoreGuard::new(client.clone(), &cfg).await?;
+
+            // Run sync and listen for Ctrl‑C concurrently.
+            tokio::select! {
+                sync_res = sync_with_progress(&cfg, progress, pseudo) => {
+                    // Sync finished (success or error). Ensure guard is finalized.
+                    if let Err(e) = sync_res {
+                        error!("Sync failed: {}", e);
+                        // Attempt to finalize before exiting with error.
+                        let _ = guard.finalize().await;
+                        std::process::exit(1);
+                    }
+                    // Normal completion – finalize guard.
+                    guard.finalize().await?;
+                    info!("Sync completed successfully");
+                }
+                _ = tokio::signal::ctrl_c() => {
+                    // On interrupt, finalize the guard and exit.
+                    let _ = guard.finalize().await;
+                    std::process::exit(0);
+                }
             }
-            info!("Sync completed successfully");
         }
         Commands::Hash { target_dir, output, pseudo } => {
             let target_path = Path::new(&target_dir);

@@ -6,7 +6,7 @@ use std::path::Path;
 use tokio::fs as async_fs;
 use tokio::io::AsyncReadExt;
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct HashStore {
     /// Regular SHA‑256 hashes
     pub regular_hashes: BTreeMap<String, String>,
